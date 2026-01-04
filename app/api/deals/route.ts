@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     await dbConnect();
     const body = await req.json();
 
-    const { title, from, to, date, time, aircraft, price, description, image, tags, isActive } = body;
+    const { title, from, to, date, time, aircraft, price, description, image, images, tags, isActive } = body;
 
     if (!title || !from || !to || !date || !aircraft || !price) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -50,7 +50,8 @@ export async function POST(req: NextRequest) {
       aircraft,
       price,
       description,
-      image,
+      image: image || images?.outside || images?.inside || images?.seats || images?.extra,
+      images,
       tags,
       isActive: isActive !== undefined ? !!isActive : true,
     });

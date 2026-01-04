@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { apiGet } from "@/lib/api"
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"
 
 interface Deal {
   id: string
@@ -13,6 +14,12 @@ interface Deal {
   aircraft: string
   price: number
   image: string
+  images?: {
+    outside?: string
+    inside?: string
+    seats?: string
+    extra?: string
+  }
 }
 
 export default function FeaturedDeals() {
@@ -71,6 +78,7 @@ export default function FeaturedDeals() {
         const normalized: Deal[] = (items as any[]).map((d: any, idx: number) => {
           const dateStr = d.date ? new Date(d.date) : null
           const displayDate = dateStr ? dateStr.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) : ''
+          const primary = d.image || d.images?.outside || d.images?.inside || d.images?.seats || d.images?.extra || "/jet-deals.png"
           return {
             id: String(d._id ?? d.id ?? idx + 1),
             from: d.from ?? '',
@@ -79,7 +87,8 @@ export default function FeaturedDeals() {
             time: d.time ?? '',
             aircraft: d.aircraft ?? '',
             price: Number(d.price ?? 0),
-            image: d.image ?? "/jet-deals.png",
+            image: primary,
+            images: d.images,
           }
         }).filter(d => d.from && d.to)
 
@@ -138,12 +147,29 @@ export default function FeaturedDeals() {
                   className="deal-card bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 cursor-pointer w-80"
                 >
                   <div className="relative h-48 rounded-t-2xl overflow-hidden">
-                    <img
-                      src={deal.image || "/placeholder.svg"}
-                      alt={`${deal.aircraft} - ${deal.from} to ${deal.to}`}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+                    <Carousel className="w-full h-full" autoPlay autoPlayInterval={4000}>
+                      <CarouselContent className="h-48">
+                        {(() => {
+                          const imgs = Array.from(new Set([
+                            deal.images?.outside,
+                            deal.images?.inside,
+                            deal.images?.seats,
+                            deal.images?.extra,
+                            deal.image,
+                          ].filter(Boolean) as string[]))
+                          const listBase = imgs.length > 0 ? imgs : ["/placeholder.svg"]
+const list = listBase.length === 1 ? [listBase[0], listBase[0]] : listBase
+                          return list.map((src, idx) => (
+                            <CarouselItem key={idx} className="h-48">
+                              <img src={src} alt={`${deal.aircraft} - ${deal.from} to ${deal.to}`} className="w-full h-full object-cover" />
+                            </CarouselItem>
+                          ))
+                        })()}
+                      </CarouselContent>
+                      <CarouselPrevious className="left-2 bg-white/80 hover:bg-white" />
+                      <CarouselNext className="right-2 bg-white/80 hover:bg-white" />
+                    </Carousel>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none"></div>
                   </div>
 
                   <div className="p-6">

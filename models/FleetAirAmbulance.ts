@@ -12,6 +12,12 @@ const FleetSchema = new Schema(
     features: [String],
     description: String,
     image: String,
+    images: {
+      outside: { type: String },
+      inside: { type: String },
+      seats: { type: String },
+      extra: { type: String },
+    },
     status: { type: String, enum: ['available', 'maintenance', 'booked'], default: 'available' },
     isActive: { type: Boolean, default: true },
   },

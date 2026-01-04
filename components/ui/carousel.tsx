@@ -19,6 +19,8 @@ type CarouselProps = {
   plugins?: CarouselPlugin
   orientation?: "horizontal" | "vertical"
   setApi?: (api: CarouselApi) => void
+  autoPlay?: boolean
+  autoPlayInterval?: number
 }
 
 type CarouselContextProps = {
@@ -49,10 +51,13 @@ function Carousel({
   plugins,
   className,
   children,
+  autoPlay = true,
+  autoPlayInterval = 4000,
   ...props
 }: React.ComponentProps<"div"> & CarouselProps) {
   const [carouselRef, api] = useEmblaCarousel(
     {
+      loop: true,
       ...opts,
       axis: orientation === "horizontal" ? "x" : "y",
     },
@@ -103,6 +108,25 @@ function Carousel({
       api?.off("select", onSelect)
     }
   }, [api, onSelect])
+
+  // Simple autoplay implementation
+  React.useEffect(() => {
+    if (!api || !autoPlay) return
+    const getSlidesCount = () => {
+      try {
+        return api.slideNodes().length || 0
+      } catch {
+        return 0
+      }
+    }
+    const tick = () => {
+      const count = getSlidesCount()
+      if (count <= 1) return // nothing to do
+      api.scrollNext()
+    }
+    const id = setInterval(tick, Math.max(1000, autoPlayInterval))
+    return () => clearInterval(id)
+  }, [api, autoPlay, autoPlayInterval])
 
   return (
     <CarouselContext.Provider
@@ -177,8 +201,9 @@ function CarouselPrevious({
   size = "icon",
   ...props
 }: React.ComponentProps<typeof Button>) {
-  const { orientation, scrollPrev, canScrollPrev } = useCarousel()
+  const { orientation, scrollPrev, canScrollPrev, opts } = useCarousel()
 
+  const isDisabled = opts?.loop ? false : !canScrollPrev
   return (
     <Button
       data-slot="carousel-previous"
@@ -187,11 +212,11 @@ function CarouselPrevious({
       className={cn(
         "absolute size-8 rounded-full",
         orientation === "horizontal"
-          ? "top-1/2 -left-12 -translate-y-1/2"
+          ? "top-1/2 left-2 -translate-y-1/2 z-10"
           : "-top-12 left-1/2 -translate-x-1/2 rotate-90",
         className
       )}
-      disabled={!canScrollPrev}
+      disabled={isDisabled}
       onClick={scrollPrev}
       {...props}
     >
@@ -207,8 +232,9 @@ function CarouselNext({
   size = "icon",
   ...props
 }: React.ComponentProps<typeof Button>) {
-  const { orientation, scrollNext, canScrollNext } = useCarousel()
+  const { orientation, scrollNext, canScrollNext, opts } = useCarousel()
 
+  const isDisabled = opts?.loop ? false : !canScrollNext
   return (
     <Button
       data-slot="carousel-next"
@@ -217,11 +243,11 @@ function CarouselNext({
       className={cn(
         "absolute size-8 rounded-full",
         orientation === "horizontal"
-          ? "top-1/2 -right-12 -translate-y-1/2"
+          ? "top-1/2 right-2 -translate-y-1/2 z-10"
           : "-bottom-12 left-1/2 -translate-x-1/2 rotate-90",
         className
       )}
-      disabled={!canScrollNext}
+      disabled={isDisabled}
       onClick={scrollNext}
       {...props}
     >

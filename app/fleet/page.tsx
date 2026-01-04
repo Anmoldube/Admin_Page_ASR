@@ -6,6 +6,7 @@ import Footer from '@/components/Footer';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Heart } from 'lucide-react';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 
 type FleetCategory = 'charter' | 'taxi' | 'air-ambulance';
 interface FleetItem {
@@ -17,6 +18,12 @@ interface FleetItem {
   range?: string;
   speed?: string;
   image?: string;
+  images?: {
+    outside?: string;
+    inside?: string;
+    seats?: string;
+    extra?: string;
+  };
   description?: string;
   features?: string[];
   pricePerHour?: number;
@@ -86,11 +93,28 @@ export default function FleetPage() {
             onClick={() => setSelected(f)}
           >
             <div className="relative h-48 bg-gray-200 overflow-hidden">
-              <img
-                src={f.image || '/placeholder.jpg'}
-                alt={f.name}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              />
+              <Carousel className="w-full h-full" autoPlay autoPlayInterval={4000}>
+                <CarouselContent className="h-48">
+                  {(() => {
+                    const imgs = Array.from(new Set([
+                      f.images?.outside,
+                      f.images?.inside,
+                      f.images?.seats,
+                      f.images?.extra,
+                      f.image,
+                    ].filter(Boolean) as string[]));
+                    const listBase = imgs.length > 0 ? imgs : ['/placeholder.jpg'];
+                    const list = listBase.length === 1 ? [listBase[0], listBase[0]] : listBase;
+                    return list.map((src, idx) => (
+                      <CarouselItem key={idx} className="h-48">
+                        <img src={src} alt={`${f.name} ${idx+1}`} className="w-full h-full object-cover" />
+                      </CarouselItem>
+                    ));
+                  })()}
+                </CarouselContent>
+                <CarouselPrevious className="left-2 bg-white/80 hover:bg-white" />
+                <CarouselNext className="right-2 bg-white/80 hover:bg-white" />
+              </Carousel>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -213,6 +237,32 @@ export default function FleetPage() {
                 </div>
                 <button onClick={() => setSelected(null)} className="text-2xl text-gray-400 hover:text-gray-600" aria-label="Close">×</button>
               </div>
+
+             {/* Images Carousel */}
+             <div className="mb-6">
+               <Carousel className="w-full" autoPlay autoPlayInterval={4000}>
+                 <CarouselContent className="h-64">
+                   {(() => {
+                     const imgs = Array.from(new Set([
+                       selected.images?.outside,
+                       selected.images?.inside,
+                       selected.images?.seats,
+                       selected.images?.extra,
+                       selected.image,
+                     ].filter(Boolean) as string[]));
+                     const listBase = imgs.length > 0 ? imgs : ['/placeholder.jpg'];
+                     const list = listBase.length === 1 ? [listBase[0], listBase[0]] : listBase;
+                     return list.map((src, idx) => (
+                       <CarouselItem key={idx} className="h-64">
+                         <img src={src} alt={`${selected.name} ${idx+1}`} className="w-full h-full object-cover rounded-lg" />
+                       </CarouselItem>
+                     ));
+                   })()}
+                 </CarouselContent>
+                 <CarouselPrevious className="left-2 bg-white/80 hover:bg-white" />
+                 <CarouselNext className="right-2 bg-white/80 hover:bg-white" />
+               </Carousel>
+             </div>
 
               <div className="grid grid-cols-2 gap-6 mb-6">
                 <div>

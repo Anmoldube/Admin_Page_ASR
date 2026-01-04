@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { AdminLayout } from "@admin/components/admin/AdminLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
@@ -227,11 +228,28 @@ const FleetManagement = () => {
               <CardContent className="p-0">
                 {/* Image */}
                 <div className="relative h-40 bg-secondary/50 rounded-t-lg overflow-hidden">
-                  <img
-                    src={aircraft.image}
-                    alt={aircraft.name}
-                    className="w-full h-full object-cover"
-                  />
+                  <Carousel className="w-full h-full" autoPlay autoPlayInterval={4000}>
+                    <CarouselContent className="h-40">
+                      {(() => {
+                        const imgs = Array.from(new Set([
+                          (aircraft as any).images?.outside,
+                          (aircraft as any).images?.inside,
+                          (aircraft as any).images?.seats,
+                          (aircraft as any).images?.extra,
+                          (aircraft as any).image,
+                        ].filter(Boolean) as string[]))
+                        const listBase = imgs.length > 0 ? imgs : ["/placeholder.jpg"]
+const list = listBase.length === 1 ? [listBase[0], listBase[0]] : listBase
+                        return list.map((src, idx) => (
+                          <CarouselItem key={idx} className="h-40">
+                            <img src={src} alt={`${aircraft.name} ${idx+1}`} className="w-full h-full object-cover" />
+                          </CarouselItem>
+                        ))
+                      })()}
+                    </CarouselContent>
+                    <CarouselPrevious className="left-2 bg-white/80 hover:bg-white" />
+                    <CarouselNext className="right-2 bg-white/80 hover:bg-white" />
+                  </Carousel>
                   <div className="absolute top-3 left-3">
                     <Badge className={getAvailabilityBadge(aircraft.availability)}>
                       {aircraft.availability}
@@ -314,7 +332,10 @@ const FleetManagement = () => {
               <Input placeholder="Range (e.g. 2100 nm)" value={form.range} onChange={e => setForm(s => ({...s, range: e.target.value}))} />
               <Input placeholder="Speed (e.g. 441 kt)" value={form.speed} onChange={e => setForm(s => ({...s, speed: e.target.value}))} />
               <Input placeholder="Price per hour" value={form.pricePerHour} onChange={e => setForm(s => ({...s, pricePerHour: e.target.value}))} />
-              <Input placeholder="Image URL" className="col-span-2" value={form.image} onChange={e => setForm(s => ({...s, image: e.target.value}))} />
+              <Input placeholder="Outside Image URL" className="col-span-2" value={(form as any).imageOutside || ''} onChange={e => setForm(s => ({...s, imageOutside: e.target.value}))} />
+              <Input placeholder="Inside Image URL" className="col-span-2" value={(form as any).imageInside || ''} onChange={e => setForm(s => ({...s, imageInside: e.target.value}))} />
+              <Input placeholder="Seats Image URL" className="col-span-2" value={(form as any).imageSeats || ''} onChange={e => setForm(s => ({...s, imageSeats: e.target.value}))} />
+              <Input placeholder="Extra Image URL (optional)" className="col-span-2" value={(form as any).imageExtra || ''} onChange={e => setForm(s => ({...s, imageExtra: e.target.value}))} />
               <Input placeholder="Description" className="col-span-2" value={form.description} onChange={e => setForm(s => ({...s, description: e.target.value}))} />
             </div>
 

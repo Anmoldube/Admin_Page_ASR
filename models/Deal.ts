@@ -11,6 +11,12 @@ const DealSchema = new mongoose.Schema(
     aircraft: { type: String, required: true },
     price: { type: Number, required: true },
     image: { type: String },
+    images: {
+      outside: { type: String },
+      inside: { type: String },
+      seats: { type: String },
+      extra: { type: String },
+    },
     isActive: { type: Boolean, default: true },
     tags: [{ type: String }],
   },

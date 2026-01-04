@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
       features,
       description,
       image,
+      images,
       status,
       isActive,
     } = body;
@@ -46,7 +47,8 @@ export async function POST(req: NextRequest) {
       pricePerHour,
       features: features || [],
       description,
-      image,
+      image: image || images?.outside || images?.inside || images?.seats || images?.extra,
+      images,
       status: status ?? 'available',
       isActive: isActive ?? true,
     });

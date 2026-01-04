@@ -44,18 +44,24 @@ function readFromStorageAndCookies() {
   return { user, tokens, accessToken };
 }
 
-function assertSingleProviderInstance() {
-  if (typeof window !== 'undefined') {
-    if (window.__ASR_AUTH_PROVIDER_MOUNTED__) {
-      console.warn('[NEXT][AuthProvider] Duplicate provider detected.');
-    } else {
-      window.__ASR_AUTH_PROVIDER_MOUNTED__ = true;
-    }
-  }
-}
-
 export function AuthProvider({ children, initialUser = null }) {
-  assertSingleProviderInstance();
+  // Guard against duplicate providers, but play nice with React StrictMode (double mount in dev)
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const k = '__ASR_AUTH_PROVIDER_MOUNTED__';
+    const current = (window[k] || 0);
+    if (current > 0) {
+      // Only warn in production to avoid noisy dev/HMR/StrictMode warnings
+      if (process.env.NODE_ENV === 'production') {
+        console.warn('[NEXT][AuthProvider] Duplicate provider detected.');
+      }
+    }
+    window[k] = current + 1;
+    return () => {
+      const now = (window[k] || 1) - 1;
+      window[k] = now > 0 ? now : 0;
+    };
+  }, []);
 
   const [user, setUser] = useState(initialUser || null);
   const [accessToken, setAccessToken] = useState(null);

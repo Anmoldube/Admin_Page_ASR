@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -46,6 +47,12 @@ interface Aircraft {
   speed: string;
   description: string;
   imageUrl: string;
+  images?: {
+    outside?: string;
+    inside?: string;
+    seats?: string;
+    extra?: string;
+  };
   available: boolean;
   visibleOnB2C: boolean;
   bookingEnabled: boolean;
@@ -135,17 +142,25 @@ const FleetManagement = () => {
         const res = await fetch('/api/fleet/charter');
         if (!res.ok) throw new Error('Failed to load fleet');
         const items = await res.json();
-        const mapped: Aircraft[] = (Array.isArray(items) ? items : []).map((f:any) => ({
-          id: f._id,
-          name: f.name || f.model || 'Aircraft',
-          model: f.model || '',
-          image: f.image || '/placeholder.jpg',
-          seats: f.capacity || 0,
-          range: f.range || '-',
-          speed: f.speed || '-',
-          visibleOnB2C: !!f.isActive,
-          bookingEnabled: true,
-        }));
+        const mapped: Aircraft[] = (Array.isArray(items) ? items : []).map((f:any) => {
+          const primary = f?.image || f?.images?.outside || f?.images?.inside || f?.images?.seats || f?.images?.extra || '/placeholder.jpg';
+          return {
+            id: f._id,
+            name: f.name || f.model || 'Aircraft',
+            type: f.model || '',
+            manufacturer: f.manufacturer || '',
+            imageUrl: primary,
+            images: f.images,
+            seats: f.capacity || 0,
+            range: f.range || '-',
+            speed: f.speed || '-',
+            available: (f.status || 'available') === 'available',
+            visibleOnB2C: !!f.isActive,
+            bookingEnabled: true,
+            operator: f.operator || 'Direct',
+            pricePerHour: typeof f.pricePerHour === 'number' ? `₹${f.pricePerHour.toLocaleString()}/hr` : 'On request',
+          } as Aircraft;
+        });
         if (isMounted) setAircraft(mapped);
       } catch (e:any) {
         if (isMounted) setError(e.message || 'Error');
@@ -158,6 +173,8 @@ const FleetManagement = () => {
   }, []);
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [viewItem, setViewItem] = useState<Aircraft | null>(null);
+  const [editItem, setEditItem] = useState<Aircraft | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -167,7 +184,10 @@ const FleetManagement = () => {
     range: "",
     speed: "",
     description: "",
-    imageUrl: "",
+    imageOutside: "",
+    imageInside: "",
+    imageSeats: "",
+    imageExtra: "",
     pricePerHour: "",
     available: true,
     visibleOnB2C: true,
@@ -195,15 +215,20 @@ const FleetManagement = () => {
         pricePerHour: priceAsNumber,
         features: [],
         description: formData.description,
-        image: formData.imageUrl,
+        images: {
+          outside: formData.imageOutside || undefined,
+          inside: formData.imageInside || undefined,
+          seats: formData.imageSeats || undefined,
+          extra: formData.imageExtra || undefined,
+        },
         status: formData.available ? 'available' : 'maintenance',
         isActive: !!formData.visibleOnB2C,
       };
 
-      const res = await fetch('/api/fleet/charter', {
-        method: 'POST',
+      const res = await fetch(`/api/fleet/charter${editItem ? `?id=${encodeURIComponent(editItem.id)}` : ''}`, {
+        method: editItem ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(editItem ? { _id: editItem.id, ...payload } : payload),
       });
 
       if (!res.ok) {
@@ -213,17 +238,17 @@ const FleetManagement = () => {
 
       const created = await res.json();
 
-      // Update list with server-created doc
-      const createdMapped: Aircraft = {
+      const mapped: Aircraft = {
         id: created._id,
         name: created.name || created.model || 'Aircraft',
-        type: formData.type,
+        type: created.model || formData.type,
         manufacturer: formData.manufacturer,
         seats: created.capacity ?? parseInt(formData.seats || '0', 10),
         range: created.range,
         speed: created.speed,
         description: created.description ?? formData.description,
-        imageUrl: created.image ?? formData.imageUrl ?? '/placeholder.jpg',
+        imageUrl: created.image ?? created.images?.outside ?? created.images?.inside ?? created.images?.seats ?? created.images?.extra ?? '/placeholder.jpg',
+        images: created.images,
         available: created.status === 'available',
         visibleOnB2C: !!created.isActive,
         bookingEnabled: formData.bookingEnabled,
@@ -231,7 +256,8 @@ const FleetManagement = () => {
         pricePerHour: formData.pricePerHour,
       };
 
-      setAircraft(prev => [createdMapped, ...prev]);
+      setAircraft(prev => editItem ? prev.map(p => p.id === mapped.id ? mapped : p) : [mapped, ...prev]);
+      setEditItem(null);
 
       setFormData({
         name: '',
@@ -241,14 +267,17 @@ const FleetManagement = () => {
         range: '',
         speed: '',
         description: '',
-        imageUrl: '',
+        imageOutside: '',
+        imageInside: '',
+        imageSeats: '',
+        imageExtra: '',
         pricePerHour: '',
         available: true,
         visibleOnB2C: true,
         bookingEnabled: true,
       });
-      setIsDialogOpen(false);
-      toast({ title: 'Aircraft Added', description: 'The aircraft has been saved to the database.' });
+     setIsDialogOpen(false);
+     toast({ title: editItem ? 'Aircraft Updated' : 'Aircraft Added', description: editItem ? 'The aircraft has been updated.' : 'The aircraft has been saved to the database.' });
     } catch (err: any) {
       toast({ title: 'Add failed', description: err?.message || 'Unable to add aircraft', variant: 'destructive' as any });
     }
@@ -279,14 +308,21 @@ const FleetManagement = () => {
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="gold-gradient text-accent-foreground">
+              <Button className="gold-gradient text-accent-foreground" onClick={() => {
+                setEditItem(null);
+                setFormData({
+                  name: '', type: '', manufacturer: '', seats: '', range: '', speed: '', description: '',
+                  imageOutside: '', imageInside: '', imageSeats: '', imageExtra: '', pricePerHour: '',
+                  available: true, visibleOnB2C: true, bookingEnabled: true,
+                });
+              }}>
                 <Plus className="w-4 h-4 mr-2" />
                 Add Aircraft
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Add New Aircraft</DialogTitle>
+                <DialogTitle>{editItem ? 'Edit Aircraft' : 'Add New Aircraft'}</DialogTitle>
                 <DialogDescription>Enter the details of the aircraft</DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -363,12 +399,39 @@ const FleetManagement = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="imageUrl">Image URL</Label>
+                    <Label htmlFor="imageOutside">Outside Image URL</Label>
                     <Input
-                      id="imageUrl"
-                      placeholder="https://..."
-                      value={formData.imageUrl}
-                      onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                      id="imageOutside"
+                      placeholder="https://... (outside)"
+                      value={formData.imageOutside}
+                      onChange={(e) => setFormData({ ...formData, imageOutside: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="imageInside">Inside Image URL</Label>
+                    <Input
+                      id="imageInside"
+                      placeholder="https://... (inside)"
+                      value={formData.imageInside}
+                      onChange={(e) => setFormData({ ...formData, imageInside: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="imageSeats">Seats Image URL</Label>
+                    <Input
+                      id="imageSeats"
+                      placeholder="https://... (seats)"
+                      value={formData.imageSeats}
+                      onChange={(e) => setFormData({ ...formData, imageSeats: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="imageExtra">Extra Image URL (optional)</Label>
+                    <Input
+                      id="imageExtra"
+                      placeholder="https://... (extra)"
+                      value={formData.imageExtra}
+                      onChange={(e) => setFormData({ ...formData, imageExtra: e.target.value })}
                     />
                   </div>
                 </div>
@@ -438,12 +501,29 @@ const FleetManagement = () => {
           {filteredAircraft.map((plane) => (
             <Card key={plane.id} className="overflow-hidden group hover:shadow-xl transition-all">
               <div className="relative h-48 overflow-hidden">
-                <img
-                  src={plane.imageUrl}
-                  alt={plane.name}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
+                <Carousel className="w-full h-full" autoPlay autoPlayInterval={4000}>
+                  <CarouselContent className="h-48">
+                    {(() => {
+                      const imgs = Array.from(new Set([
+                        plane.images?.outside,
+                        plane.images?.inside,
+                        plane.images?.seats,
+                        plane.images?.extra,
+                        plane.imageUrl,
+                      ].filter(Boolean) as string[]));
+                      const listBase = imgs.length > 0 ? imgs : ['/placeholder.jpg'];
+const list = listBase.length === 1 ? [listBase[0], listBase[0]] : listBase;
+                      return list.map((src, idx) => (
+                        <CarouselItem key={idx} className="h-48">
+                          <img src={src} alt={`${plane.name} ${idx+1}`} className="w-full h-full object-cover" />
+                        </CarouselItem>
+                      ));
+                    })()}
+                  </CarouselContent>
+                  <CarouselPrevious className="left-2 bg-white/80 hover:bg-white" />
+                  <CarouselNext className="right-2 bg-white/80 hover:bg-white" />
+                </Carousel>
+                <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent pointer-events-none" />
                 <div className="absolute top-3 left-3 flex gap-2">
                   {plane.available ? (
                     <Badge className="bg-success text-success-foreground">Available</Badge>
@@ -459,15 +539,44 @@ const FleetManagement = () => {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="bg-popover">
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onSelect={(e)=>{e.preventDefault(); setViewItem(plane);}}>
                         <Eye className="w-4 h-4 mr-2" />
                         View Details
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onSelect={(e)=>{e.preventDefault(); setEditItem(plane); setIsDialogOpen(true);
+                        setFormData({
+                          name: plane.name,
+                          type: plane.type,
+                          manufacturer: plane.manufacturer,
+                          seats: String(plane.seats ?? ''),
+                          range: plane.range,
+                          speed: plane.speed,
+                          description: plane.description || '',
+                          imageOutside: plane.images?.outside || '',
+                          imageInside: plane.images?.inside || '',
+                          imageSeats: plane.images?.seats || '',
+                          imageExtra: plane.images?.extra || '',
+                          pricePerHour: plane.pricePerHour,
+                          available: plane.available,
+                          visibleOnB2C: plane.visibleOnB2C,
+                          bookingEnabled: plane.bookingEnabled,
+                        });
+                      }}>
                         <Edit className="w-4 h-4 mr-2" />
                         Edit
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive">
+                      <DropdownMenuItem className="text-destructive" onSelect={async (e)=>{
+                        e.preventDefault();
+                        if (!confirm(`Delete ${plane.name}?`)) return;
+                        try {
+                          const res = await fetch(`/api/fleet/charter?id=${encodeURIComponent(plane.id)}`, { method: 'DELETE' });
+                          if (!res.ok) throw new Error('Delete failed');
+                          setAircraft(prev=> prev.filter(p=>p.id!==plane.id));
+                          
+                        } catch(err:any){
+                          console.error(err);
+                        }
+                      }}>
                         <Trash2 className="w-4 h-4 mr-2" />
                         Delete
                       </DropdownMenuItem>

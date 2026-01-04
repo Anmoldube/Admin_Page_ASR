@@ -112,7 +112,7 @@ const FeaturedDeals = () => {
                       alt={`${deal.aircraft} - ${deal.from} to ${deal.to}`}
                       className="w-full h-full object-cover blur-sm"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none"></div>
                   </div>
 
                   <div className="p-6">
